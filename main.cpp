@@ -6,7 +6,9 @@
 #include <GL/gl.h>
 #include <vector>
 
-//g++ main.cpp -lSDL2 -SDL2_image -lGL 
+//build me with
+//g++ main.cpp -lSDL2 -lSDL2_image -lGL 
+//and nevermind a couple of warnings
 
 using tex_point_type=GLdouble;
 struct point {int x, y;};
