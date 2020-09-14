@@ -23,7 +23,7 @@ texpoint to_opengl(point, double, double);
 
 int main(int argc, char ** argv) {
 
-	int window_w=200, window_h=200;
+	int window_w=400, window_h=400;
 
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 1);
