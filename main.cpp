@@ -8,6 +8,19 @@
 
 //g++ main.cpp -lSDL2 -SDL2_image -lGL 
 
+using tex_point_type=GLdouble;
+struct point {int x, y;};
+struct texpoint {tex_point_type x, y;};
+
+//draws a solid box. Actually a clockwise polygon.
+void draw_solid_box(const std::vector<point>& points);
+
+//draws a textured box.
+void draw_textured_box(const std::vector<point>&, const std::vector<texpoint>, GLuint);
+
+//converts image point to opengl texture point [0-1]
+texpoint to_opengl(point, double, double);
+
 int main(int argc, char ** argv) {
 
 	int window_w=200, window_h=200;
@@ -36,30 +49,11 @@ int main(int argc, char ** argv) {
 
 	glViewport(0.f, 0.f, window_w, window_h);
 
-	glClearColor(1.f, 0.5f, 0.5f, 0.5f);
+	//Black background...
+	glClearColor(0.f, 0.f, 0., 0.f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-//	SDL_GL_SwapWindow(window);
-//	std::this_thread::sleep_for(std::chrono::seconds{2});
-
-	//Draw a solid box, first the geometry, clockwise.
-	struct point {int x, y;};
-
-	std::vector<point>	points{
-		{32, 32}, {64, 32}, {64, 64}, {32, 64}
-	};
-
-	glDisable(GL_BLEND);
-	glColor3f(1.f, 1.f, 1.f);
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glVertexPointer(2, GL_INT, 0, points.data());
-	glDrawArrays(GL_POLYGON, 0, points.size());
-	glDisableClientState(GL_VERTEX_ARRAY);
-
-	SDL_GL_SwapWindow(window);
-	std::this_thread::sleep_for(std::chrono::seconds{2});
-
-	//Then the texture... first we load it...
+	//Load the texture it...
 	SDL_Surface * surface=IMG_Load("sprites.png");
 	GLuint index{};
 	double texture_w{surface->w},
@@ -68,47 +62,81 @@ int main(int argc, char ** argv) {
 	glBindTexture(GL_TEXTURE_2D, index);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_w, texture_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
 	SDL_FreeSurface(surface);
-
-	//Next we map it...
-	using point_type=GLdouble;
-	struct texpoint {point_type x, y;};
-
 	glBindTexture(GL_TEXTURE_2D, index);
 	glEnable(GL_TEXTURE_2D);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+	//Setup texture params.
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 //	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 //	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	//This would be the full texture...
-//	std::vector<texpoint>	tex_points{{0., 0.}, {1., 0.}, {1., 1.}, {0., 1.}};
+	//draw a straight 1:1 texture...
+	draw_textured_box(
+		{{32,32}, {64, 32}, {64, 64}, {32, 64}},
+		{
+			to_opengl({32, 32}, texture_w, texture_h), 
+			to_opengl({64, 32}, texture_w, texture_h), 
+			to_opengl({64, 64}, texture_w, texture_h),
+			to_opengl({32, 64}, texture_w, texture_h)
+		},
+		index
+	);
 
-	auto to_opengl=[texture_w, texture_h](int x, int y) {
+	//draw a 64x64 box filled with a 32x32 texture (1:2)
+	draw_textured_box(
+		{{64,32}, {128, 32}, {128, 96}, {64, 96}},
+		{
+			to_opengl({32, 32}, texture_w, texture_h), 
+			to_opengl({64, 32}, texture_w, texture_h), 
+			to_opengl({64, 64}, texture_w, texture_h),
+			to_opengl({32, 64}, texture_w, texture_h)
+		},
+		index
+	);
 
-		point_type oglx=((double)x / texture_w),
-					ogly=((double)y / texture_h);
-		return texpoint{oglx, ogly};
-	};
+	//draw a 32x32 box with the texture horizontally inverted...
+	//TODO: This looks funky...
+	draw_textured_box(
+		{{32,64}, {64, 64}, {64, 96}, {32, 96}},
+		{
+			to_opengl({64, 32}, texture_w, texture_h), 
+			to_opengl({32, 32}, texture_w, texture_h), 
+			to_opengl({32, 64}, texture_w, texture_h),
+			to_opengl({64, 64}, texture_w, texture_h)
+		},
+		index
+	);
 
-	//This would be the texture points {32, 32}, {64, 32}, {64, 64}, {32, 64}
-	std::vector<texpoint>	tex_points{
-		to_opengl(32, 32), to_opengl(64, 32), to_opengl(64, 64), to_opengl(32, 64)
-	};
-	
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY_EXT);
-	glVertexPointer(2, GL_INT, 0, points.data());
-	glTexCoordPointer(2, GL_DOUBLE, 0, tex_points.data());
-	glDrawArrays(GL_QUADS, 0, points.size());
+	//draw a 32x32 box with the texture vertically inverted...
+	//TODO: This looks funky...
+	draw_textured_box(
+		{{128,32}, {160, 32}, {160, 64}, {128, 64}},
+		{
+			to_opengl({32, 64}, texture_w, texture_h), 
+			to_opengl({64, 64}, texture_w, texture_h), 
+			to_opengl({64, 32}, texture_w, texture_h),
+			to_opengl({32, 32}, texture_w, texture_h)
+		},
+		index
+	);
 
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY_EXT);
-	glDisable(GL_TEXTURE_2D);
+	//draw a 32x32 box with the texture inverted...
+	//TODO: This looks funky...
+	draw_textured_box(
+		{{128,64}, {160, 64}, {160, 96}, {128, 96}},
+		{
+			to_opengl({64, 64}, texture_w, texture_h), 
+			to_opengl({32, 64}, texture_w, texture_h), 
+			to_opengl({32, 32}, texture_w, texture_h),
+			to_opengl({64, 32}, texture_w, texture_h)
+		},
+		index
+	);
 
 	SDL_GL_SwapWindow(window);
-	std::this_thread::sleep_for(std::chrono::seconds{2});
+	std::this_thread::sleep_for(std::chrono::seconds{5});
 
 	glDeleteTextures(1, &index);
 
@@ -116,4 +144,42 @@ int main(int argc, char ** argv) {
 	SDL_GL_DeleteContext(context);
 
 	return 0;
+}
+
+void draw_textured_box(
+	const std::vector<point>& geometry, 
+	const std::vector<texpoint> texture_points, 
+	GLuint index) {
+
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glEnableClientState(GL_TEXTURE_COORD_ARRAY_EXT);
+
+	glTexCoordPointer(2, GL_DOUBLE, 0, texture_points.data());
+	glVertexPointer(2, GL_INT, 0, geometry.data());
+	glDrawArrays(GL_QUADS, 0, geometry.size());
+
+	glDisableClientState(GL_TEXTURE_COORD_ARRAY_EXT);
+	glDisableClientState(GL_VERTEX_ARRAY);
+}
+
+texpoint to_opengl(
+	point pt, 
+	double texture_w, 
+	double texture_h) {
+
+	tex_point_type oglx=((double)pt.x / texture_w),
+				ogly=((double)pt.y / texture_h);
+
+	return {oglx, ogly};
+}
+
+void draw_solid_box(const std::vector<point>& points) {
+
+	glEnableClientState(GL_VERTEX_ARRAY);
+
+	glColor3f(1.f, 1.f, 1.f);
+	glVertexPointer(2, GL_INT, 0, points.data());
+	glDrawArrays(GL_POLYGON, 0, points.size());
+
+	glDisableClientState(GL_VERTEX_ARRAY);
 }
